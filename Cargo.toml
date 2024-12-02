@@ -3,9 +3,11 @@ members = [
     "aoc-runner",
     "aoc-runner-derive",
     "aoc-runner-internal",
-    "cargo-aoc"
+    "cargo-aoc",
 ]
-exclude = [
-    "examples",
-]
+exclude = ["examples"]
 resolver = "2"
+
+
+[patch.crates-io]
+aoc-runner-internal = { path = "aoc-runner-internal" }

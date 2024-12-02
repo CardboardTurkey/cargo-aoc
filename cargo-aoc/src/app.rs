@@ -1,7 +1,7 @@
 use crate::{
     credentials::CredentialsManager, date, project::ProjectManager, Bench, Credentials, Input,
 };
-use aoc_runner_internal::{Day, Part};
+use aoc_runner_internal::{Day, Part, TARGET_DIR};
 use date::AOCDate;
 use reqwest::{
     header::{HeaderMap, COOKIE, USER_AGENT},
@@ -41,9 +41,9 @@ pub fn execute_credentials(args: &Credentials) {
 /// Executes the "input" subcommand of the app
 pub fn execute_input(args: &Input) -> Result<(), Box<dyn Error>> {
     // Gets the token or exit if it's not referenced.
-    let token = CredentialsManager::new().get_session_token().expect(
-        "Error: you need to setup your AOC token using \"cargo aoc credentials {token}\"",
-    );
+    let token = CredentialsManager::new()
+        .get_session_token()
+        .expect("Error: you need to setup your AOC token using \"cargo aoc credentials {token}\"");
 
     let pm = ProjectManager::new()?;
 
@@ -58,7 +58,9 @@ pub fn execute_input(args: &Input) -> Result<(), Box<dyn Error>> {
             .year
             .expect("Need to specify a year to run cargo-aoc input --all");
         {
-            let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .build()
+                .unwrap();
             rt.block_on(async {
                 let client = reqwest::Client::builder()
                     .default_headers(headers)
@@ -320,16 +322,22 @@ pub fn execute_default(args: &Cli) -> Result<(), Box<dyn error::Error>> {
     .replace("{INPUT}", &template_input(day, year, args.input.as_deref()))
     .replace("{BODY}", &body);
 
-    fs::create_dir_all("target/aoc/aoc-autobuild/src")
+    fs::create_dir_all(TARGET_DIR.join("aoc/aoc-autobuild/src"))
         .expect("failed to create autobuild directory");
-    fs::write("target/aoc/aoc-autobuild/Cargo.toml", cargo_content)
-        .expect("failed to write Cargo.toml");
-    fs::write("target/aoc/aoc-autobuild/src/main.rs", main_content)
-        .expect("failed to write src/main.rs");
+    fs::write(
+        TARGET_DIR.join("aoc/aoc-autobuild/Cargo.toml"),
+        cargo_content,
+    )
+    .expect("failed to write Cargo.toml");
+    fs::write(
+        TARGET_DIR.join("aoc/aoc-autobuild/src/main.rs"),
+        main_content,
+    )
+    .expect("failed to write src/main.rs");
 
     let status = process::Command::new("cargo")
         .args(["run", "--release"])
-        .current_dir("target/aoc/aoc-autobuild")
+        .current_dir(TARGET_DIR.join("aoc/aoc-autobuild"))
         .spawn()
         .expect("Failed to run cargo")
         .wait()
@@ -526,19 +534,22 @@ pub fn execute_bench(args: &Bench) -> Result<(), Box<dyn error::Error>> {
             &template_input(day, year, args.input.as_deref()),
         );
 
-    fs::create_dir_all("target/aoc/aoc-autobench/benches")
+    fs::create_dir_all(TARGET_DIR.join("aoc/aoc-autobench/benches"))
         .expect("failed to create autobench directory");
-    fs::write("target/aoc/aoc-autobench/Cargo.toml", cargo_content)
-        .expect("failed to write Cargo.toml");
     fs::write(
-        "target/aoc/aoc-autobench/benches/aoc_benchmark.rs",
+        TARGET_DIR.join("aoc/aoc-autobench/Cargo.toml"),
+        cargo_content,
+    )
+    .expect("failed to write Cargo.toml");
+    fs::write(
+        TARGET_DIR.join("aoc/aoc-autobench/benches/aoc_benchmark.rs"),
         main_content,
     )
     .expect("failed to write src/aoc_benchmark.rs");
 
     let status = process::Command::new("cargo")
         .args(["bench"])
-        .current_dir("target/aoc/aoc-autobench")
+        .current_dir(TARGET_DIR.join("aoc/aoc-autobench"))
         .spawn()
         .expect("Failed to run cargo")
         .wait()
@@ -549,11 +560,16 @@ pub fn execute_bench(args: &Bench) -> Result<(), Box<dyn error::Error>> {
     }
 
     if args.open {
-        let index = "target/aoc/aoc-autobench/target/criterion/report/index.html";
+        let index = TARGET_DIR.join("aoc/aoc-autobench/target/criterion/report/index.html");
 
-        if !Path::new(index).exists() {
+        if !index.exists() {
             return Err("Report is missing, perhaps gnuplot is missing ?".into());
         }
+
+        let Some(index) = index.to_str() else {
+            return Err(format!("Path to report contains invalid Unicode: {index:#?}").into());
+        };
+
         webbrowser::open(index)?;
     }
 

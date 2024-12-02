@@ -3,13 +3,38 @@ extern crate serde_derive;
 extern crate serde_json;
 
 use serde_derive::*;
+use serde_json::Value;
 use std::cmp::Ordering;
 use std::error;
 use std::fs;
 use std::iter::FromIterator;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::path::PathBuf;
+use std::process::Command;
 use std::str::FromStr;
+use std::sync::LazyLock;
+
+pub static TARGET_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    let metadata: Value = serde_json::from_slice(
+        &Command::new("cargo")
+            .arg("metadata")
+            .output()
+            .expect("Failed to find target directory")
+            .stdout,
+    )
+    .expect("Failed to find target directory");
+    let metadata = metadata
+        .as_object()
+        .expect("Failed to find target directory");
+    PathBuf::from(
+        metadata
+            .get("target_directory")
+            .expect("Failed to find target directory")
+            .as_str()
+            .expect("Failed to find target directory"),
+    )
+});
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone, Serialize, Deserialize, Ord, PartialOrd)]
 pub struct Day(pub u8);
@@ -92,8 +117,8 @@ pub struct DayParts {
 
 impl DayParts {
     pub fn save(&self) -> Result<(), Box<dyn error::Error>> {
-        fs::create_dir_all("target/aoc")?;
-        let f = fs::File::create("target/aoc/completed.json")?;
+        fs::create_dir_all(TARGET_DIR.join("aoc"))?;
+        let f = fs::File::create(TARGET_DIR.join("aoc/completed.json"))?;
 
         serde_json::to_writer_pretty(f, &self)?;
 
@@ -101,7 +126,7 @@ impl DayParts {
     }
 
     pub fn load() -> Result<Self, Box<dyn error::Error>> {
-        let f = fs::File::open("target/aoc/completed.json")?;
+        let f = fs::File::open(TARGET_DIR.join("aoc/completed.json"))?;
 
         Ok(serde_json::from_reader(f)?)
     }
